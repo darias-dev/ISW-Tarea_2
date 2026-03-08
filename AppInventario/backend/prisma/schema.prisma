@@ -1,0 +1,142 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Usuario {
+  id          Int                    @id @default(autoincrement())
+  nombre      String
+  email       String                 @unique
+  password    String
+  rol         RolUsuario             @default(ALMACEN)
+  activo      Boolean                @default(true)
+  movimientos MovimientoInventario[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+enum RolUsuario {
+  ADMIN
+  ALMACEN
+  COMPRADOR
+  AUDITOR
+}
+
+model Proveedor {
+  id              Int           @id @default(autoincrement())
+  nombre          String
+  contacto        String?
+  condicionesPago String?
+  productos       Producto[]
+  ordenesCompra   OrdenCompra[]
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+}
+
+model Categoria {
+  id          Int        @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  productos   Producto[]
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+}
+
+model Producto {
+  sku         Int                    @id @default(autoincrement())
+  nombre      String
+  descripcion String?
+  unidad      String
+  precio      Float
+  stockMinimo Int                    @default(10)
+  categoriaId Int
+  categoria   Categoria              @relation(fields: [categoriaId], references: [id])
+  proveedorId Int?
+  proveedor   Proveedor?             @relation(fields: [proveedorId], references: [id])
+  lotes       Lote[]
+  movimientos MovimientoInventario[]
+  ordenItems  OrdenCompraItem[]
+  createdAt   DateTime               @default(now())
+  updatedAt   DateTime               @updatedAt
+}
+
+model Almacen {
+  id                 Int                    @id @default(autoincrement())
+  nombre             String
+  ubicacion          String?
+  capacidad          Int?
+  movimientosOrigen  MovimientoInventario[] @relation("MovimientoOrigen")
+  movimientosDestino MovimientoInventario[] @relation("MovimientoDestino")
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+}
+
+model Lote {
+  id                 Int                    @id @default(autoincrement())
+  numeroLote         String
+  fechaVencimiento   DateTime?
+  cantidadDisponible Int                    @default(0)
+  productoId         Int
+  producto           Producto               @relation(fields: [productoId], references: [sku])
+  movimientos        MovimientoInventario[]
+  createdAt          DateTime               @default(now())
+  updatedAt          DateTime               @updatedAt
+}
+
+enum TipoMovimiento {
+  ENTRADA
+  SALIDA
+  TRANSFERENCIA
+  AJUSTE
+  DEVOLUCION
+}
+
+model MovimientoInventario {
+  id               Int            @id @default(autoincrement())
+  tipo             TipoMovimiento
+  cantidad         Int
+  timestamp        DateTime       @default(now())
+  productoId       Int
+  producto         Producto       @relation(fields: [productoId], references: [sku])
+  loteId           Int?
+  lote             Lote?          @relation(fields: [loteId], references: [id])
+  almacenOrigenId  Int?
+  almacenOrigen    Almacen?       @relation("MovimientoOrigen", fields: [almacenOrigenId], references: [id])
+  almacenDestinoId Int?
+  almacenDestino   Almacen?       @relation("MovimientoDestino", fields: [almacenDestinoId], references: [id])
+  usuarioId        Int
+  usuario          Usuario        @relation(fields: [usuarioId], references: [id])
+}
+
+enum EstadoOrden {
+  PENDIENTE
+  APROBADA
+  RECIBIDA
+  CANCELADA
+}
+
+model OrdenCompra {
+  id             Int               @id @default(autoincrement())
+  estado         EstadoOrden       @default(PENDIENTE)
+  fechaCreacion  DateTime          @default(now())
+  fechaRecepcion DateTime?
+  proveedorId    Int
+  proveedor      Proveedor         @relation(fields: [proveedorId], references: [id])
+  items          OrdenCompraItem[]
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+}
+
+model OrdenCompraItem {
+  id             Int         @id @default(autoincrement())
+  cantidad       Int
+  precioUnitario Float
+  ordenCompraId  Int
+  ordenCompra    OrdenCompra @relation(fields: [ordenCompraId], references: [id])
+  productoId     Int
+  producto       Producto    @relation(fields: [productoId], references: [sku])
+}
